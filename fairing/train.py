@@ -109,10 +109,10 @@ class Trainer(object):
         logger.warn("Training(s) launched.")
 
         if self.stream_logs:
-            self.backend.stream_logs(self.image_name, self.image_tag)
+            self.backend.stream_logs(self.image_name, self.image_tag, self.namespace)
 
         if self.cleanup:
-            self.backend.cleanup(self.image_name, self.image_tag)
+            self.backend.cleanup(self.image_name, self.image_tag, self.namespace)
 
     def start_training(self, user_class, *args, **kwargs):
         logger.warn("Starting user code!!!")
@@ -121,7 +121,7 @@ class Trainer(object):
 
 class Train(object):
     def __init__(self,
-                 repository,
+                 repository=None,
                  image_name='fairing-job',
                  image_tag=None,
                  publish=True,

@@ -58,7 +58,7 @@ class KubeClient(object):
                 tail = v1.read_namespaced_pod_log(name, namespace, follow=True, _preload_content=False)
                 break
             except ApiException as e:
-                logger.error("error tailing log for {}".format(name), e)
+                logger.error("error getting status for {} {}".format(name, str(e)))
                 retries -= 1
                 time.sleep(MAX_SLEEP_SECONDS)
         if tail:
@@ -70,6 +70,24 @@ class KubeClient(object):
                 tail.release_conn()
 
     def cleanup(self, name, namespace):
+        # "Watch" till the job is finished
+        api_instance = kube_client.CustomObjectsApi()
+        job_name = '%s-0' % name
+        group = 'kubeflow.org'  # str | The custom resource's group name
+        version = 'v1alpha2'  # str | The custom resource's version
+        plural = 'tfjobs'  # str | The custom resource's plural name.
+        retries = MAX_RETRIES
+        while retries > 0:
+            try:
+                api_response = api_instance.get_namespaced_custom_object(group, version, namespace, plural, job_name)
+                if bool(api_response['status']['conditions'][-1]['status']):
+                    break
+                retries -= 1
+                time.sleep(MAX_SLEEP_SECONDS)
+            except ApiException as e:
+                logger.error("error getting status for {} {}".format(job_name, str(e)))
+                break
+
         v1 = kube_client.CoreV1Api()
         body = kube_client.V1DeleteOptions()
         v1.delete_namespaced_config_map(name, namespace, body)
