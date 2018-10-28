@@ -2,19 +2,16 @@ import signal
 import sys
 import os
 import logging
-import shutil
-
-from fairing.notebook_helper import is_in_notebook
 from fairing.builders import get_container_builder
 from fairing.utils import is_runtime_phase, get_image_full
 from fairing.options import TensorboardOptions
 from fairing.architectures.native.basic import BasicArchitecture
 from fairing.strategies.basic import BasicTrainingStrategy
-from fairing.metaparticle import MetaparticleClient
 from fairing.utils import get_unique_tag, is_running_in_k8s, get_current_k8s_namespace
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_IMAGE_TAG = 'fairing'
 class Trainer(object):
     def __init__(self,
                  repository,
@@ -82,7 +79,7 @@ class Trainer(object):
     def fill_image_name_and_tag(self):
         if self.image_tag is None:
             os.environ['JH_UNIQUE_RUN_ID'] = get_unique_tag()
-            self.image_tag = "{}-{}".format(os.environ['JUPYTERHUB_USER'], os.environ['JH_UNIQUE_RUN_ID'])
+            self.image_tag = "{}-{}".format(os.environ.get('JUPYTERHUB_USER', DEFAULT_IMAGE_TAG), os.environ['JH_UNIQUE_RUN_ID'])
         self.full_image_name = get_image_full(
             self.repository, self.image_name, self.image_tag)
 
@@ -114,9 +111,8 @@ class Trainer(object):
         if self.cleanup:
             self.backend.cleanup(self.image_name, self.image_tag, self.namespace)
 
-    def start_training(self, user_class, *args, **kwargs):
-        logger.warn("Starting user code!!!")
-        self.strategy.exec_user_code(user_class, *args, **kwargs)
+    def start_training(self, curr_class, user_class, attribute_name, *args, **kwargs):
+        return self.strategy.exec_user_code(curr_class, user_class, attribute_name, *args, **kwargs)
 
 
 class Train(object):
@@ -162,17 +158,16 @@ class Train(object):
                 # That way, by simply commenting or uncommenting the Train decorator
                 # Model.train() will execute either on the local setup or in kubernetes
 
-                if attribute_name != 'train' or user_class.is_training_initialized or not is_in_notebook():
+                if attribute_name != 'train' or user_class.is_training_initialized:
                     return super(UserClass, user_class).__getattribute__(attribute_name)
 
                 if attribute_name == 'train' and not is_runtime_phase():
                     return super(UserClass, user_class).__getattribute__('_deploy_training')
 
                 user_class.is_training_initialized = True
-                self.trainer.start_training(user_class, *args, **kwargs)
-                return super(UserClass, user_class).__getattribute__('_noop_attribute')
+                return self.trainer.start_training(UserClass, user_class, attribute_name, *args, **kwargs)
 
-            def _noop_attribute(user_class):
+            def _noop_attribute(user_class, *args, **kwargs):
                 pass
 
             def _deploy_training(user_class, *args, **kwargs):

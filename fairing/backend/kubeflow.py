@@ -11,7 +11,7 @@ class KubeflowBackend(NativeBackend):
         self.client = KubeClient()
 
     def stream_logs(self, image_name, image_tag, namespace):
-        chief = '%s-0-chief-0' % image_tag
+        chief = '%s-chief-0' % image_tag
         logger.info('You can check the logs for your job by running '
                     '"kubectl logs -f %s"' % chief)
         self.client.logs(chief, namespace)

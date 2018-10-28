@@ -1,7 +1,9 @@
 from kubernetes import client as kube_client
+from kubernetes import watch
 from kubernetes import config
 from kubernetes.client.rest import ApiException
 import os
+import json
 import time
 from fairing.utils import is_running_in_k8s, get_current_k8s_namespace
 import logging
@@ -10,6 +12,8 @@ MAX_RETRIES = 100
 MAX_REQUEST_TIMEOUT = 30
 MAX_SLEEP_SECONDS = 3
 MAX_STREAM_BYTES = 1024
+
+
 class KubeClient(object):
 
     def __init__(self, kubeconfig="/var/run/kubernetes/config"):
@@ -27,22 +31,33 @@ class KubeClient(object):
             config.load_kube_config(config_file=self.kubeconfig)
 
     def run(self, svc):
-        logger.info("Creating maps")
         if is_running_in_k8s():
             svc['namespace'] = get_current_k8s_namespace()
         else:
             svc['namespace'] = svc.get('namespace') or 'default'
         v1 = kube_client.CoreV1Api()
         v1.create_namespaced_config_map(namespace=svc['namespace'], body=svc['configMap'])
+        api_response = v1.read_namespaced_config_map(name=svc['configMap']['metadata']['name'],
+                                                     namespace=svc['namespace'],
+                                                     pretty='true')
+        logger.info("Created configmap '%s'", api_response)
         api_instance = kube_client.CustomObjectsApi()
-
         group = 'kubeflow.org'  # str | The custom resource's group name
         version = 'v1alpha2'  # str | The custom resource's version
         plural = 'tfjobs'  # str | The custom resource's plural name.
         namespace = svc['namespace']
-        for body in svc['tfJobs']:
-            api_response = api_instance.create_namespaced_custom_object(group, version, namespace, plural, body)
-            logger.info("api response '%s'", api_response)
+        body = svc['tfJob']
+        api_response = api_instance.create_namespaced_custom_object(group, version, namespace, plural, body)
+        logger.debug("Created tfjob '%s'", api_response)
+
+    def load_configmap(self, name):
+        v1 = kube_client.CoreV1Api()
+        if is_running_in_k8s():
+            namespace = get_current_k8s_namespace()
+        else:
+            namespace = 'default'
+        config_map = v1.read_namespaced_config_map(name=name, namespace=namespace)
+        return config_map.data
 
     def cancel(self, name):
         pass
@@ -55,7 +70,11 @@ class KubeClient(object):
         retries = MAX_RETRIES
         while retries > 0:
             try:
-                tail = v1.read_namespaced_pod_log(name, namespace, follow=True, _preload_content=False)
+                w = watch.Watch()
+                for event in w.stream(v1.list_namespaced_pod, namespace=namespace, field_selector="metadata.name={}".format(name)):
+                    logger.info("Event: %s %s %s", event['type'], json.dumps(event), event['object'].metadata.name)
+                    if event['type'] == 'Normal' and event['reason'] == 'Started':
+                        tail = v1.read_namespaced_pod_log(name, namespace, follow=True, _preload_content=False)
                 break
             except ApiException as e:
                 logger.error("error getting status for {} {}".format(name, str(e)))
@@ -64,7 +83,6 @@ class KubeClient(object):
         if tail:
             try:
                 for chunk in tail.stream(MAX_STREAM_BYTES):
-                    #TODO use a logger
                     print(chunk)
             finally:
                 tail.release_conn()
@@ -72,7 +90,7 @@ class KubeClient(object):
     def cleanup(self, name, namespace):
         # "Watch" till the job is finished
         api_instance = kube_client.CustomObjectsApi()
-        job_name = '%s-0' % name
+        job_name = name
         group = 'kubeflow.org'  # str | The custom resource's group name
         version = 'v1alpha2'  # str | The custom resource's version
         plural = 'tfjobs'  # str | The custom resource's plural name.

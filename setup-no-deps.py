@@ -15,22 +15,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
-    ),
-    install_requires=[
-        'docker==3.4.1',
-        'redis==2.10.6',
-        'notebook==5.6.0',
-        'jupyter==1.0.0',
-        'numpy==1.15.0',
-        'kubernetes==7.0.0',
-        'pyyaml==3.12',
-        'jinja2==2.10'
-    ],
-    extras_require={
-        'dev': [
-            'pytest',
-            'pytest-pep8',
-            'pytest-cov'
-        ]
-    }
+    )
 )

@@ -1,7 +1,7 @@
 from enum import Enum
 
-from fairing.builders.cmbuilder import CmBuilder
 from fairing.builders.knative import KnativeBuilder
+from fairing.builders.cmbuilder import CmBuilder
 from fairing.utils import is_running_in_k8s
 
 class Builders(Enum):
@@ -22,12 +22,15 @@ def get_container_builder(builder_str=None):
 
 def get_default_container_builder():
     if is_running_in_k8s():
-        return get_builder(Builders.CM)
-    return get_builder(Builders.CM)
+        return get_builder(Builders.KNATIVE)
+    return get_builder(Builders.DOCKER)
 
 
 def get_builder(builder):
-    if builder == Builders.CM:
-        return CmBuilder()
+    if builder == Builders.DOCKER:
+        from fairing.builders.docker import DockerBuilder
+        return DockerBuilder()
     elif builder == Builders.KNATIVE:
         return KnativeBuilder()
+    elif builder == Builders.CM:
+        return CmBuilder()
