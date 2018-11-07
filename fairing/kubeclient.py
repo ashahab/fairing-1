@@ -72,7 +72,7 @@ class KubeClient(object):
             try:
                 w = watch.Watch()
                 for event in w.stream(v1.list_namespaced_pod, namespace=namespace, field_selector="metadata.name={}".format(name)):
-                    logger.info("Event: %s %s %s", event['type'], json.dumps(event), event['object'].metadata.name)
+                    logger.info("Event: %s %s %s", event['type'], event['reason'], event['object'].metadata.name)
                     if event['type'] == 'Normal' and event['reason'] == 'Started':
                         tail = v1.read_namespaced_pod_log(name, namespace, follow=True, _preload_content=False)
                 break
