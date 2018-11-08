@@ -4,13 +4,12 @@ import re
 import ipykernel
 import requests
 from notebook.notebookapp import list_running_servers
+from urllib.parse import urljoin
 
 def get_notebook_name():
     """
     Return the full path of the jupyter notebook.
     """
-    # Have to do this to ensure this never gets called from python2
-    from urllib.parse import urljoin
     kernel_id = re.search('kernel-(.*).json',
                           ipykernel.connect.get_connection_file()).group(1)
     servers = list_running_servers()

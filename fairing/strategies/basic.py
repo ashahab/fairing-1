@@ -16,8 +16,8 @@ class BasicTrainingStrategy(object):
   def get_params(self):
     return {}
   
-  def exec_user_code(self, curr_class, user_class, attribute_name, *args, **kwargs):
-    logger.debug("curr_class %s user_class %s attribute %s args %s", curr_class, user_class, attribute_name, str(*args))
+  def exec_user_code(self, curr_class, user_class, attribute_name):
+    logger.debug("curr_class %s user_class %s", curr_class, user_class)
     if 'build' in dir(user_class) and callable(getattr(user_class, 'build')):
       user_class.build()
     return super(curr_class, user_class).__getattribute__(attribute_name)

@@ -1,6 +1,6 @@
 import os
 import uuid
-from fairing.notebook_helper import is_in_notebook
+
 def get_image_full(repository, name, tag):
     return "{base}:{tag}".format(
         base=get_image(repository, name),

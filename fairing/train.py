@@ -111,8 +111,8 @@ class Trainer(object):
         if self.cleanup:
             self.backend.cleanup(self.image_name, self.image_tag, self.namespace)
 
-    def start_training(self, curr_class, user_class, attribute_name, *args, **kwargs):
-        return self.strategy.exec_user_code(curr_class, user_class, attribute_name, *args, **kwargs)
+    def start_training(self, curr_class, user_class, attribute_name):
+        return self.strategy.exec_user_code(curr_class, user_class, attribute_name)
 
 
 class Train(object):
@@ -165,12 +165,12 @@ class Train(object):
                     return super(UserClass, user_class).__getattribute__('_deploy_training')
 
                 user_class.is_training_initialized = True
-                return self.trainer.start_training(UserClass, user_class, attribute_name, *args, **kwargs)
+                return self.trainer.start_training(UserClass, user_class, attribute_name)
 
-            def _noop_attribute(user_class, *args, **kwargs):
+            def _noop_attribute(user_class):
                 pass
 
-            def _deploy_training(user_class, *args, **kwargs):
+            def _deploy_training(user_class):
                 self.trainer.deploy_training()
 
         return UserClass
